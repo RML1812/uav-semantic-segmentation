@@ -6,12 +6,16 @@ from KMeansClass import KMeansModel
 from functions import load_dataset
 
 # Title of the app
-st.title("KMeans Segmentation Demo")
+st.title("KMeans Segmentation Demo (Manual or Auto)")
 
 # Sidebar for user inputs
 st.sidebar.header("Model Configuration")
-cluster_size = st.sidebar.slider("Cluster Size", min_value=2, max_value=10, value=6)
+mode = st.sidebar.radio("Cluster Size Mode", ["Manual", "Automatic"])
 max_iters = st.sidebar.slider("Max Iterations", min_value=10, max_value=100, value=50)
+
+# If in manual mode, ask for cluster size
+if mode == "Manual":
+    cluster_size = st.sidebar.slider("Cluster Size", min_value=2, max_value=10, value=6)
 
 # Initialize session state to keep track of images, masks, and model
 if 'images' not in st.session_state:
@@ -20,6 +24,8 @@ if 'masks' not in st.session_state:
     st.session_state.masks = None
 if 'model' not in st.session_state:
     st.session_state.model = None  # Store the trained model here
+if 'cluster_size' not in st.session_state:
+    st.session_state.cluster_size = None  # Store the optimal cluster size found by fit_auto()
 
 # Load dataset and display sample images
 st.subheader("Dataset")
@@ -35,11 +41,22 @@ if st.button("Load Dataset"):
 st.subheader("Model Training")
 if st.button("Train Model"):
     if st.session_state.images and st.session_state.masks:
-        # Train a new KMeans model and save it to session state
+        # Initialize the KMeans model
         model = KMeansModel()
-        model.fit(st.session_state.images, cluster_size=cluster_size, max_iters=max_iters)
-        st.session_state.model = model  # Store trained model in session state
-        st.success(f"Model trained with {cluster_size} clusters and {max_iters} iterations.")
+
+        # Train based on the user's selected mode
+        if mode == "Manual":
+            # Manual mode: Train the model with a user-specified cluster size
+            model.fit(st.session_state.images, cluster_size=cluster_size, max_iters=max_iters)
+            st.session_state.model = model  # Store trained model in session state
+            st.session_state.cluster_size = cluster_size  # Store the manually selected cluster size
+            st.success(f"Model trained manually with {cluster_size} clusters and {max_iters} iterations.")
+        else:
+            # Automatic mode: Use fit_auto to determine the best cluster size
+            optimal_cluster_size = model.fit_auto(st.session_state.images, st.session_state.masks, max_iters=max_iters)
+            st.session_state.model = model  # Store trained model in session state
+            st.session_state.cluster_size = optimal_cluster_size  # Store the optimal cluster size
+            st.success(f"Model trained automatically with {optimal_cluster_size} optimal clusters and {max_iters} iterations.")
 
 # Manual image upload for prediction
 st.subheader("Manual Image Upload for Prediction")
@@ -66,15 +83,42 @@ if uploaded_file is not None:
     else:
         st.error("Model is not trained. Please train or load a model first.")
 
-# Evaluate the model
+# Evaluation options: single image or entire dataset
 st.subheader("Model Evaluation")
-if st.button("Evaluate Model"):
-    if st.session_state.images and st.session_state.masks:
-        if st.session_state.model:  # Ensure the model is trained
-            score = st.session_state.model.evaluate(st.session_state.images, st.session_state.masks)
-            st.write(f"Average V-measure score for the dataset: {score:.4f}")
+eval_option = st.selectbox("Choose evaluation type", ["Evaluate Single Image", "Evaluate Full Dataset"])
+
+# Evaluate single image
+if eval_option == "Evaluate Single Image":
+    st.subheader("Evaluate Single Image")
+    eval_uploaded_file = st.file_uploader("Upload an image with ground truth mask (JPG format)", type=["jpg", "jpeg"], key="eval_upload")
+    mask_uploaded_file = st.file_uploader("Upload the corresponding ground truth mask (JPG format)", type=["jpg", "jpeg"], key="mask_upload")
+    
+    if eval_uploaded_file is not None and mask_uploaded_file is not None:
+        eval_image = Image.open(eval_uploaded_file)
+        eval_image_np = np.array(eval_image)
+
+        mask_image = Image.open(mask_uploaded_file)
+        mask_image_np = np.array(mask_image)
+
+        # Evaluate single image using the model
+        if st.session_state.model:
+            score = st.session_state.model.evaluate_single(eval_image_np, mask_image_np)
+            st.write(f"V-measure score for the uploaded image: {score:.4f}")
         else:
-            st.error("Model is not trained. Please train the model first.")
+            st.error("Model is not trained. Please train or load the model first.")
+
+# Evaluate full dataset
+if eval_option == "Evaluate Full Dataset":
+    st.subheader("Evaluate Full Dataset")
+    if st.button("Evaluate Entire Dataset"):
+        if st.session_state.images and st.session_state.masks:
+            if st.session_state.model:  # Ensure the model is trained
+                score = st.session_state.model.evaluate(st.session_state.images, st.session_state.masks)
+                st.write(f"Average V-measure score for the dataset: {score:.4f}")
+            else:
+                st.error("Model is not trained. Please train the model first.")
+        else:
+            st.error("Dataset is not loaded. Please load the dataset first.")
 
 # Save and Load the model
 st.subheader("Model Persistence")
