@@ -1,1 +1,1 @@
-uav-developable-zone-clustering
+uav-semantic-segmentation-clustering
