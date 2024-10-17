@@ -2,4 +2,4 @@ numpy
 opencv_python
 Pillow
 scikit_learn
-skimage
+scikit-image
