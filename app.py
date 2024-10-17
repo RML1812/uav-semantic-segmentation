@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from KMeansClass import KMeansModel
-from functions import load_dataset
+from functions import *
 
 # Title of the app
 st.title("KMeans Segmentation Demo (Manual or Auto)")
@@ -57,6 +57,30 @@ if st.button("Train Model"):
             st.session_state.model = model  # Store trained model in session state
             st.session_state.cluster_size = optimal_cluster_size  # Store the optimal cluster size
             st.success(f"Model trained automatically with {optimal_cluster_size} optimal clusters and {max_iters} iterations.")
+
+# Use sample set image for prediction and evaluation
+st.subheader("Use Sample Set Image for Prediction and Evaluation")
+if st.button("Get Set"):
+    image_np, mask_np  = get_image_and_mask(st.session_state.images, st.session_state.masks)
+
+    # Predict segmentation on the sample set image
+    if st.session_state.model:
+        predicted_labels = st.session_state.model.predict(image_np)
+        score = st.session_state.model.evaluate_single(image_np, mask_np)
+        
+        # Display original image and predicted segmentation side by side
+        fig, ax = plt.subplots(1, 3, figsize=(10, 5))
+        ax[0].imshow(image_np)
+        ax[0].set_title('Sample Image')
+        ax[1].imshow(predicted_labels, cmap="viridis")
+        ax[1].set_title('Predicted Segmentation')
+        ax[2].imshow(mask_np)
+        ax[2].set_title('Sample Mask')
+        st.pyplot(fig)
+        st.write(f"V-measure score for sample set image: {score:.4f}")
+    else:
+        st.error("Model is not trained. Please train or load a model first.")
+
 
 # Manual image upload for prediction
 st.subheader("Manual Image Upload for Prediction")
