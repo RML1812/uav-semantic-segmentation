@@ -3,29 +3,28 @@ import random
 import numpy as np
 from PIL import Image
 
-# Retrieve random image and mask pair (default = 1), returns in numpy
-def get_image_and_mask(num_samples=1):
-    # Get list of all image and mask files
-    image_files = [f for f in os.listdir(os.path.join("dataset", "images")) if f.endswith('.jpg')]
-    mask_files = [f for f in os.listdir(os.path.join("dataset", "masks")) if f.endswith('.jpg')]
-    
-    # Ensure both lists are sorted to match corresponding images/masks
-    image_files.sort()
-    mask_files.sort()
-    
-    # Randomly select num_samples indices
-    selected_indices = random.sample(range(len(image_files)), num_samples)
-    
+# Retrieve random image and mask pair (default = 1) from list, returns in numpy
+def get_image_and_mask(images, masks, num_samples=1):
+    # Ensure the lists are of the same length
+    if len(images) != len(masks):
+        raise ValueError("The number of images and masks must be equal.")
+
+    # Check if num_samples is valid
+    if num_samples > len(images):
+        raise ValueError("num_samples cannot exceed the number of available images/masks.")
+
+    # Randomly select 'num_samples' indices
+    selected_indices = random.sample(range(len(images)), num_samples)
+
     # Retrieve the selected images and masks
-    for idx in selected_indices:
-        image_path = os.path.join(os.path.join("dataset", "images"), image_files[idx])
-        mask_path = os.path.join(os.path.join("dataset", "masks"), mask_files[idx])
-        
-        # Load the image and mask as numpy
-        image = np.array(Image.open(image_path))
-        mask = np.array(Image.open(mask_path))
-    
-    return image, mask
+    selected_images = [images[i] for i in selected_indices]
+    selected_masks = [masks[i] for i in selected_indices]
+
+    # Return a single pair if num_samples = 1, else return lists
+    if num_samples == 1:
+        return selected_images[0], selected_masks[0]
+    else:
+        return selected_images, selected_masks
 
 def load_dataset():
     image_files = sorted([f for f in os.listdir(os.path.join("dataset", "images")) if f.endswith('.jpg')])
